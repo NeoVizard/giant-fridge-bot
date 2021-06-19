@@ -1,4 +1,5 @@
 import requests
+import random
 import os
 import time
 import json
@@ -11,16 +12,16 @@ load_dotenv()
 
 retry_count = 2
 headers = {"Authorization": "Bearer " + os.getenv("BEARER")}
-from_date = datetime.utcnow() - timedelta(days=3)
+from_date = datetime.utcnow() - timedelta(days=2)
 from_date = from_date.replace(microsecond=0)
 start_time = f"&start_time={from_date.isoformat()}Z"
-to_date = datetime.utcnow() - timedelta(days=2)
+to_date = datetime.utcnow() - timedelta(days=1)
 to_date = to_date.replace(microsecond=0)
 end_time = f"&end_time={to_date.isoformat()}Z"
 
 
 # %23 is '#'
-url = f"https://api.twitter.com/2/tweets/search/recent?query=%23art has:images -%23nsfw -%23r34 -is:reply -is:quote -is:retweet{start_time}{end_time}&expansions=attachments.media_keys&tweet.fields=public_metrics&media.fields=media_key,type,url&max_results=100"
+url = f"https://api.twitter.com/2/tweets/search/recent?query=%23art has:images -%23nsfw -%23r34 -is:reply -is:quote -is:retweet{start_time}{end_time}&expansions=attachments.media_keys&tweet.fields=public_metrics&media.fields=media_key,type,url,width,height&max_results=100"
 
 tweet_count = 100
 
@@ -60,12 +61,22 @@ while True:
 
             imgs = list(filter(lambda x: x["media_key"] in media_keys, media))
 
-            for tweet in top_tweets:
-                tweet["media"] = next(
+            max_image_ratio = max_image_ratio_index = 0
+            for i, tweet in enumerate(top_tweets):
+                tweet_media = next(
                     x
                     for x in imgs
                     if x["media_key"] == tweet["attachments"]["media_keys"][0]
                 )
+                image_ratio = tweet_media["width"]/tweet_media["height"]
+                if image_ratio > max_image_ratio:
+                    max_image_ratio = image_ratio
+                    max_image_ratio_index = i
+                tweet["media"] = tweet_media
+
+            max_image_ratio_tweet = top_tweets.pop(max_image_ratio_index)
+            random.shuffle(top_tweets)
+            top_tweets.insert(2, max_image_ratio_tweet)
 
             data = {"top_tweets": top_tweets}
 
